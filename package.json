@@ -1,0 +1,24 @@
+{
+  "name": "webrtc-example",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "nodemon --exec tsx server.ts"
+  },
+  "author": "Damian Pieczynski",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^4.21.1",
+    "nodemon": "^3.1.7",
+    "socket.io": "^4.8.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.7.5",
+    "@types/socket.io": "^3.0.2",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

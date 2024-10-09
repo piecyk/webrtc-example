@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WebRTC with Rooms and Leave</title>
+  </head>
+  <body>
+    <h1>WebRTC with Room Leave</h1>
+    <video id="localVideo" autoplay playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+    <button id="leaveRoomBtn">Leave Room</button>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+      const socket = io();
+      let peerConnection;
+      let localStream;
+      const servers = {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      };
+      const localVideo = document.getElementById("localVideo");
+      const remoteVideo = document.getElementById("remoteVideo");
+      const room = prompt("Enter room name:");
+      let hasJoinedRoom = false;
+
+      // Join the room
+      if (!hasJoinedRoom) {
+        socket.emit("join-room", room);
+        hasJoinedRoom = true;
+      }
+
+      // Get local media stream
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .then((stream) => {
+          localStream = stream;
+          localVideo.srcObject = stream;
+        })
+        .catch((error) => {
+          console.error("Error accessing media devices.", error);
+        });
+
+      // Handle incoming offer
+      socket.on("offer", async (offer) => {
+        peerConnection = new RTCPeerConnection(servers);
+        localStream
+          .getTracks()
+          .forEach((track) => peerConnection.addTrack(track, localStream));
+
+        peerConnection.ontrack = (event) => {
+          remoteVideo.srcObject = event.streams[0];
+        };
+
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(offer)
+        );
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit("answer", answer, room);
+
+        peerConnection.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit("candidate", event.candidate, room);
+          }
+        };
+      });
+
+      // Handle SDP answer
+      socket.on("answer", async (answer) => {
+        await peerConnection.setRemoteDescription(
+          new RTCSessionDescription(answer)
+        );
+      });
+
+      // Handle ICE candidates
+      socket.on("candidate", (candidate) => {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      });
+
+      // Handle peer leaving
+      socket.on("peer-left", (peerId) => {
+        console.log(`Peer ${peerId} left the room`);
+        if (peerConnection) {
+          peerConnection.close(); // Close the peer connection
+        }
+        remoteVideo.srcObject = null; // Clear the remote video stream
+      });
+
+      // Leave room and cleanup
+      document.getElementById("leaveRoomBtn").addEventListener("click", () => {
+        socket.emit("leave-room", room);
+
+        if (peerConnection) {
+          peerConnection.close(); // Close the WebRTC connection
+        }
+
+        localVideo.srcObject = null;
+        remoteVideo.srcObject = null;
+
+        console.log(`Left room: ${room}`);
+      });
+    </script>
+  </body>
+</html>
